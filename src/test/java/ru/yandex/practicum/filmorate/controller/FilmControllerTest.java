@@ -87,6 +87,18 @@ class FilmControllerTest {
     }
 
     @Test
+    void createFilmWithReleaseDateWithinOneYear() {
+        validFilm.setReleaseDate(LocalDate.now().plusYears(1));
+        assertDoesNotThrow(() -> filmController.create(validFilm));
+    }
+
+    @Test
+    void createFilmWithReleaseDateMoreThanOneYearInFuture() {
+        validFilm.setReleaseDate(LocalDate.now().plusYears(1).plusDays(1));
+        assertThrows(ValidationException.class, () -> filmController.create(validFilm));
+    }
+
+    @Test
     void createFilmWithZeroDuration() {
         validFilm.setDuration(0);
         assertThrows(ValidationException.class, () -> filmController.create(validFilm));

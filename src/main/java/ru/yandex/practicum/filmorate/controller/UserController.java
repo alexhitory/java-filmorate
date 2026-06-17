@@ -25,9 +25,7 @@ public class UserController {
     @PostMapping
     public User create(@RequestBody User user) {
         validate(user);
-        if (user.getName() == null || user.getName().isBlank()) {
-            user.setName(user.getLogin());
-        }
+        fillNameIfEmpty(user);
         user.setId(nextId++);
         users.put(user.getId(), user);
         log.info("Создан новый пользователь с id={}: {}", user.getId(), user.getLogin());
@@ -41,9 +39,7 @@ public class UserController {
             log.error("Попытка обновить несуществующего пользователя с id={}", user.getId());
             throw new ValidationException("Пользователь с указанным id не найден");
         }
-        if (user.getName() == null || user.getName().isBlank()) {
-            user.setName(user.getLogin());
-        }
+        fillNameIfEmpty(user);
         users.put(user.getId(), user);
         log.info("Обновлён пользователь с id={}: {}", user.getId(), user.getLogin());
         return user;
@@ -51,7 +47,14 @@ public class UserController {
 
     @GetMapping
     public Collection<User> findAll() {
+        log.info("Получен запрос на список всех пользователей");
         return users.values();
+    }
+
+    private void fillNameIfEmpty(User user) {
+        if (user.getName() == null || user.getName().isBlank()) {
+            user.setName(user.getLogin());
+        }
     }
 
     private void validate(User user) {

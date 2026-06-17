@@ -48,6 +48,7 @@ public class FilmController {
 
     @GetMapping
     public Collection<Film> findAll() {
+        log.info("Получен запрос на список всех фильмов");
         return films.values();
     }
 
@@ -63,6 +64,10 @@ public class FilmController {
         if (film.getReleaseDate() == null || film.getReleaseDate().isBefore(MIN_RELEASE_DATE)) {
             log.error("Ошибка валидации фильма: некорректная дата релиза {}", film.getReleaseDate());
             throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
+        }
+        if (film.getReleaseDate().isAfter(LocalDate.now().plusYears(1))) {
+            log.error("Ошибка валидации фильма: дата релиза слишком далеко в будущем {}", film.getReleaseDate());
+            throw new ValidationException("Дата релиза не может быть более чем на год в будущем");
         }
         if (film.getDuration() <= 0) {
             log.error("Ошибка валидации фильма: некорректная продолжительность {}", film.getDuration());
