@@ -178,6 +178,11 @@ class FilmServiceTest {
     }
 
     @Test
+    void getPopularFilmsWithZeroCountThrowsValidationException() {
+        assertThrows(ValidationException.class, () -> filmService.getPopularFilms(0));
+    }
+
+    @Test
     void addLikeByUnknownUserThrowsNotFoundException() {
         Film film = filmService.create(validFilm);
         assertThrows(NotFoundException.class, () -> filmService.addLike(film.getId(), 999));

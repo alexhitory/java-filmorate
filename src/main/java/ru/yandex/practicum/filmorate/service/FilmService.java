@@ -11,7 +11,6 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -74,14 +73,11 @@ public class FilmService {
 
     public List<Film> getPopularFilms(Integer count) {
         int limit = count == null ? DEFAULT_POPULAR_COUNT : count;
-        if (limit < 0) {
-            throw new ValidationException("Количество популярных фильмов не может быть отрицательным");
+        if (limit <= 0) {
+            throw new ValidationException("Количество популярных фильмов должно быть положительным числом");
         }
         log.debug("Запрошены {} популярных фильмов", limit);
-        return filmStorage.findAll().stream()
-                .sorted(Comparator.comparingInt((Film film) -> film.getLikes().size()).reversed())
-                .limit(limit)
-                .toList();
+        return filmStorage.findPopular(limit);
     }
 
     private Film getFilmById(long id) {

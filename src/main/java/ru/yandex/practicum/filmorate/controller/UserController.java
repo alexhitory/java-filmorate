@@ -29,11 +29,13 @@ public class UserController {
 
     @PostMapping
     public User create(@RequestBody User user) {
+        log.info("Получен запрос на создание пользователя: {}", user.getLogin());
         return userService.create(user);
     }
 
     @PutMapping
     public User update(@RequestBody User user) {
+        log.info("Получен запрос на обновление пользователя с id={}", user.getId());
         return userService.update(user);
     }
 
