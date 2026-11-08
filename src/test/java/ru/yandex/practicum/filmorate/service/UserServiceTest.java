@@ -123,7 +123,7 @@ class UserServiceTest {
     }
 
     @Test
-    void addFriendAddsUsersMutually() {
+    void addFriendAddsOnlyOutgoingFriendship() {
         User first = userService.create(validUser);
         User second = createUser("second@mail.ru", "second");
 
@@ -131,19 +131,21 @@ class UserServiceTest {
 
         assertEquals(1, userService.getFriends(first.getId()).size());
         assertEquals(second.getId(), userService.getFriends(first.getId()).get(0).getId());
-        assertEquals(first.getId(), userService.getFriends(second.getId()).get(0).getId());
+        assertEquals(0, userService.getFriends(second.getId()).size());
     }
 
     @Test
-    void removeFriendRemovesUsersMutually() {
+    void removeFriendPreservesReverseFriendship() {
         User first = userService.create(validUser);
         User second = createUser("second@mail.ru", "second");
         userService.addFriend(first.getId(), second.getId());
 
+        userService.addFriend(second.getId(), first.getId());
+
         userService.removeFriend(first.getId(), second.getId());
 
         assertEquals(0, userService.getFriends(first.getId()).size());
-        assertEquals(0, userService.getFriends(second.getId()).size());
+        assertEquals(1, userService.getFriends(second.getId()).size());
     }
 
     @Test

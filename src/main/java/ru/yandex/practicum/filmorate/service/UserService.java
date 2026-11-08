@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
@@ -15,6 +16,7 @@ import java.util.List;
 
 @Slf4j
 @Service
+@Transactional
 public class UserService {
     private final UserStorage userStorage;
 
@@ -57,21 +59,17 @@ public class UserService {
             throw new ValidationException("Нельзя добавить самого себя в друзья");
         }
         User user = getUserById(userId);
-        User friend = getUserById(friendId);
+        getUserById(friendId);
         user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
         userStorage.update(user);
-        userStorage.update(friend);
         log.info("Пользователь с id={} добавил в друзья пользователя с id={}", userId, friendId);
     }
 
     public void removeFriend(long userId, long friendId) {
         User user = getUserById(userId);
-        User friend = getUserById(friendId);
+        getUserById(friendId);
         user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId);
         userStorage.update(user);
-        userStorage.update(friend);
         log.info("Пользователь с id={} удалил из друзей пользователя с id={}", userId, friendId);
     }
 
