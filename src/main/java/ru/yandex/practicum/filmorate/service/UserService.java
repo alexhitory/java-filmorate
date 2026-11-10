@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
@@ -10,11 +11,11 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
 @Service
+@Transactional
 public class UserService {
     private final UserStorage userStorage;
 
@@ -41,11 +42,13 @@ public class UserService {
         return updated;
     }
 
+    @Transactional(readOnly = true)
     public Collection<User> findAll() {
         log.debug("Запрошен список всех пользователей");
         return userStorage.findAll();
     }
 
+    @Transactional(readOnly = true)
     public User findById(long id) {
         log.debug("Запрошен пользователь с id={}", id);
         return getUserById(id);
@@ -57,42 +60,33 @@ public class UserService {
             throw new ValidationException("Нельзя добавить самого себя в друзья");
         }
         User user = getUserById(userId);
-        User friend = getUserById(friendId);
+        getUserById(friendId);
         user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
         userStorage.update(user);
-        userStorage.update(friend);
         log.info("Пользователь с id={} добавил в друзья пользователя с id={}", userId, friendId);
     }
 
     public void removeFriend(long userId, long friendId) {
         User user = getUserById(userId);
-        User friend = getUserById(friendId);
+        getUserById(friendId);
         user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId);
         userStorage.update(user);
-        userStorage.update(friend);
         log.info("Пользователь с id={} удалил из друзей пользователя с id={}", userId, friendId);
     }
 
+    @Transactional(readOnly = true)
     public List<User> getFriends(long userId) {
-        User user = getUserById(userId);
+        getUserById(userId);
         log.debug("Запрошен список друзей пользователя с id={}", userId);
-        return user.getFriends().stream()
-                .map(this::getUserById)
-                .sorted(Comparator.comparingLong(User::getId))
-                .toList();
+        return userStorage.findFriends(userId);
     }
 
+    @Transactional(readOnly = true)
     public List<User> getCommonFriends(long userId, long otherId) {
-        User user = getUserById(userId);
-        User other = getUserById(otherId);
+        getUserById(userId);
+        getUserById(otherId);
         log.debug("Запрошен список общих друзей пользователей с id={} и id={}", userId, otherId);
-        return user.getFriends().stream()
-                .filter(other.getFriends()::contains)
-                .map(this::getUserById)
-                .sorted(Comparator.comparingLong(User::getId))
-                .toList();
+        return userStorage.findCommonFriends(userId, otherId);
     }
 
     private User getUserById(long id) {

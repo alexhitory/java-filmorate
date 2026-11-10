@@ -2,12 +2,13 @@ package ru.yandex.practicum.filmorate.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import ru.yandex.practicum.filmorate.JdbcIntegrationTest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
@@ -16,16 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class FilmServiceTest {
+class FilmServiceTest extends JdbcIntegrationTest {
+    @Autowired
     private FilmService filmService;
+    @Autowired
     private UserStorage userStorage;
     private Film validFilm;
 
     @BeforeEach
     void setUp() {
-        userStorage = new InMemoryUserStorage();
-        filmService = new FilmService(new InMemoryFilmStorage(), userStorage);
         validFilm = new Film();
+        validFilm.setMpa(new Mpa(1, null));
         validFilm.setName("Test Film");
         validFilm.setDescription("Description");
         validFilm.setReleaseDate(LocalDate.of(2000, 1, 1));
@@ -158,6 +160,7 @@ class FilmServiceTest {
     void getPopularFilmsUsesLikesOrderAndDefaultLimit() {
         Film first = filmService.create(validFilm);
         Film second = new Film();
+        second.setMpa(new Mpa(1, null));
         second.setName("Second Film");
         second.setDescription("Description");
         second.setReleaseDate(LocalDate.of(2001, 1, 1));
