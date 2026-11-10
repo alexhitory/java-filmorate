@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -91,12 +92,15 @@ public class FilmDbStorage implements FilmStorage {
             throw new ValidationException("MPA is required");
         }
         mpaStorage.findById(film.getMpa().getId());
-        if (film.getGenres() != null) {
+        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
+            Set<Integer> existingIds = genreStorage.findAll().stream().map(Genre::getId).collect(Collectors.toSet());
             for (Genre genre : film.getGenres()) {
                 if (genre == null) {
                     throw new ValidationException("Genre must not be null");
                 }
-                genreStorage.findById(genre.getId());
+                if (!existingIds.contains(genre.getId())) {
+                    throw new NotFoundException("Genre not found: " + genre.getId());
+                }
             }
         }
     }
@@ -107,12 +111,20 @@ public class FilmDbStorage implements FilmStorage {
         if (film.getGenres() != null) {
             film.getGenres().forEach(genre -> genreIds.add(genre.getId()));
         }
-        for (Integer genreId : genreIds) {
-            jdbc.update("INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)", film.getId(), genreId);
+        if (!genreIds.isEmpty()) {
+            jdbc.batchUpdate("INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)",
+                    genreIds, genreIds.size(), (statement, genreId) -> {
+                        statement.setLong(1, film.getId());
+                        statement.setInt(2, genreId);
+                    });
         }
         jdbc.update("DELETE FROM film_likes WHERE film_id = ?", film.getId());
-        for (Long userId : film.getLikes()) {
-            jdbc.update("INSERT INTO film_likes (film_id, user_id) VALUES (?, ?)", film.getId(), userId);
+        if (!film.getLikes().isEmpty()) {
+            jdbc.batchUpdate("INSERT INTO film_likes (film_id, user_id) VALUES (?, ?)",
+                    film.getLikes(), film.getLikes().size(), (statement, userId) -> {
+                        statement.setLong(1, film.getId());
+                        statement.setLong(2, userId);
+                    });
         }
     }
 

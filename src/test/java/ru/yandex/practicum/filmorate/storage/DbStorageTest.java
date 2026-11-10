@@ -7,6 +7,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.transaction.annotation.Propagation;
@@ -29,6 +30,12 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @JdbcTest
 @AutoConfigureTestDatabase
@@ -80,6 +87,41 @@ class DbStorageTest {
         assertThat(users.findById(second.getId()).orElseThrow().getFriends()).containsExactly(first.getId());
         users.delete(first.getId());
         assertThat(users.findById(second.getId()).orElseThrow().getFriends()).isEmpty();
+    }
+
+    @Test
+    void friendsAndCommonFriendsUseSingleQueriesAndReturnCompleteUsers() {
+        User first = users.create(user("first"));
+        User second = users.create(user("second"));
+        User common = users.create(user("common"));
+        User anotherCommon = users.create(user("anotherCommon"));
+        User onlyFirst = users.create(user("onlyFirst"));
+        first.getFriends().addAll(Set.of(onlyFirst.getId(), anotherCommon.getId(), common.getId()));
+        second.getFriends().addAll(Set.of(anotherCommon.getId(), common.getId()));
+        common.getFriends().addAll(Set.of(first.getId(), second.getId()));
+        users.update(first);
+        users.update(second);
+        users.update(common);
+
+        JdbcTemplate observedJdbc = spy(new JdbcTemplate(jdbc.getDataSource()));
+        UserDbStorage observedStorage = new UserDbStorage(observedJdbc);
+        List<User> friends = observedStorage.findFriends(first.getId());
+        assertThat(friends).extracting(User::getId)
+                .containsExactly(common.getId(), anotherCommon.getId(), onlyFirst.getId());
+        assertThat(friends.get(0)).isEqualTo(common);
+        verify(observedJdbc, times(1)).query(anyString(), any(ResultSetExtractor.class), any(Object[].class));
+
+        clearInvocations(observedJdbc);
+        assertThat(observedStorage.findCommonFriends(first.getId(), second.getId()))
+                .containsExactly(common, anotherCommon);
+        verify(observedJdbc, times(1)).query(anyString(), any(ResultSetExtractor.class), any(Object[].class));
+
+        assertThat(users.findFriends(-1)).isEmpty();
+        assertThat(users.findFriends(onlyFirst.getId())).isEmpty();
+        assertThat(users.findCommonFriends(first.getId(), -1)).isEmpty();
+        assertThat(users.findCommonFriends(first.getId(), onlyFirst.getId())).isEmpty();
+        assertThat(users.findCommonFriends(first.getId(), first.getId())).isEqualTo(friends);
+        assertThat(users.findAll()).hasSize(5).contains(common);
     }
 
     @Test
@@ -197,11 +239,16 @@ class DbStorageTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void referenceDataAndInitializationAreRepeatable() {
         User user = users.create(user("retained"));
-        new ResourceDatabasePopulator(new ClassPathResource("schema.sql"), new ClassPathResource("data.sql"))
-                .execute(jdbc.getDataSource());
-        assertThat(users.findById(user.getId())).contains(user);
+        try {
+            new ResourceDatabasePopulator(new ClassPathResource("schema.sql"), new ClassPathResource("data.sql"))
+                    .execute(jdbc.getDataSource());
+            assertThat(users.findById(user.getId())).contains(user);
+        } finally {
+            users.delete(user.getId());
+        }
         assertThat(mpa.findAll()).extracting(Mpa::getId).containsExactly(1, 2, 3, 4, 5);
         assertThat(mpa.findAll()).extracting(Mpa::getName).containsExactly("G", "PG", "PG-13", "R", "NC-17");
         assertThat(genres.findAll()).extracting(Genre::getId).containsExactly(1, 2, 3, 4, 5, 6);

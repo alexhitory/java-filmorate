@@ -2,10 +2,11 @@ package ru.yandex.practicum.filmorate.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import ru.yandex.practicum.filmorate.JdbcIntegrationTest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 
 import java.time.LocalDate;
 
@@ -13,13 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class UserServiceTest {
+class UserServiceTest extends JdbcIntegrationTest {
+    @Autowired
     private UserService userService;
     private User validUser;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(new InMemoryUserStorage());
         validUser = new User();
         validUser.setEmail("test@mail.ru");
         validUser.setLogin("testlogin");
@@ -160,6 +161,14 @@ class UserServiceTest {
 
         assertEquals(1, userService.getCommonFriends(first.getId(), second.getId()).size());
         assertEquals(common.getId(), userService.getCommonFriends(first.getId(), second.getId()).get(0).getId());
+    }
+
+    @Test
+    void readingFriendsOfUnknownUsersThrowsNotFoundException() {
+        User user = userService.create(validUser);
+        assertThrows(NotFoundException.class, () -> userService.getFriends(999));
+        assertThrows(NotFoundException.class, () -> userService.getCommonFriends(user.getId(), 999));
+        assertThrows(NotFoundException.class, () -> userService.getCommonFriends(999, user.getId()));
     }
 
     @Test

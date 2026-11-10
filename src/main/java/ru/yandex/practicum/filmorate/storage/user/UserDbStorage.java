@@ -10,9 +10,11 @@ import ru.yandex.practicum.filmorate.model.User;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,30 +59,65 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public Optional<User> findById(long id) {
-        return jdbc.query("SELECT * FROM users WHERE id = ?", this::mapUser, id).stream().findFirst();
+        return queryUsers("SELECT * FROM users WHERE id = ?", id).stream().findFirst();
     }
 
     @Override
     public Collection<User> findAll() {
-        return jdbc.query("SELECT * FROM users ORDER BY id", this::mapUser);
+        return queryUsers("SELECT * FROM users");
     }
 
-    private User mapUser(ResultSet rs, int row) throws SQLException {
+    @Override
+    public List<User> findFriends(long userId) {
+        return queryUsers("SELECT u.* FROM users u JOIN friendships f ON f.friend_id = u.id WHERE f.user_id = ?",
+                userId);
+    }
+
+    @Override
+    public List<User> findCommonFriends(long userId, long otherId) {
+        return queryUsers("SELECT u.* FROM users u JOIN friendships a ON a.friend_id = u.id "
+                + "JOIN friendships b ON b.friend_id = u.id WHERE a.user_id = ? AND b.user_id = ?",
+                userId, otherId);
+    }
+
+    private List<User> queryUsers(String selection, Object... args) {
+        return jdbc.query("SELECT u.*, f.friend_id FROM (" + selection + ") u "
+                + "LEFT JOIN friendships f ON f.user_id = u.id ORDER BY u.id, f.friend_id", rs -> {
+                    Map<Long, User> users = new LinkedHashMap<>();
+                    while (rs.next()) {
+                        long id = rs.getLong("id");
+                        User user = users.get(id);
+                        if (user == null) {
+                            user = mapUser(rs);
+                            users.put(id, user);
+                        }
+                        Long friendId = rs.getObject("friend_id", Long.class);
+                        if (friendId != null) {
+                            user.getFriends().add(friendId);
+                        }
+                    }
+                    return new ArrayList<>(users.values());
+                }, args);
+    }
+
+    private User mapUser(ResultSet rs) throws SQLException {
         User user = new User();
         user.setId(rs.getLong("id"));
         user.setEmail(rs.getString("email"));
         user.setLogin(rs.getString("login"));
         user.setName(rs.getString("name"));
         user.setBirthday(rs.getDate("birthday").toLocalDate());
-        user.setFriends(new LinkedHashSet<>(jdbc.queryForList(
-                "SELECT friend_id FROM friendships WHERE user_id = ? ORDER BY friend_id", Long.class, user.getId())));
         return user;
     }
 
     private void saveFriends(User user) {
         jdbc.update("DELETE FROM friendships WHERE user_id = ?", user.getId());
-        for (Long friendId : user.getFriends()) {
-            jdbc.update("INSERT INTO friendships (user_id, friend_id) VALUES (?, ?)", user.getId(), friendId);
+        if (!user.getFriends().isEmpty()) {
+            jdbc.batchUpdate("INSERT INTO friendships (user_id, friend_id) VALUES (?, ?)",
+                    user.getFriends(), user.getFriends().size(), (statement, friendId) -> {
+                        statement.setLong(1, user.getId());
+                        statement.setLong(2, friendId);
+                    });
         }
     }
 }

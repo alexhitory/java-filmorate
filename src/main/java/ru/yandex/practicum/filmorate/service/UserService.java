@@ -11,7 +11,6 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -43,11 +42,13 @@ public class UserService {
         return updated;
     }
 
+    @Transactional(readOnly = true)
     public Collection<User> findAll() {
         log.debug("Запрошен список всех пользователей");
         return userStorage.findAll();
     }
 
+    @Transactional(readOnly = true)
     public User findById(long id) {
         log.debug("Запрошен пользователь с id={}", id);
         return getUserById(id);
@@ -73,24 +74,19 @@ public class UserService {
         log.info("Пользователь с id={} удалил из друзей пользователя с id={}", userId, friendId);
     }
 
+    @Transactional(readOnly = true)
     public List<User> getFriends(long userId) {
-        User user = getUserById(userId);
+        getUserById(userId);
         log.debug("Запрошен список друзей пользователя с id={}", userId);
-        return user.getFriends().stream()
-                .map(this::getUserById)
-                .sorted(Comparator.comparingLong(User::getId))
-                .toList();
+        return userStorage.findFriends(userId);
     }
 
+    @Transactional(readOnly = true)
     public List<User> getCommonFriends(long userId, long otherId) {
-        User user = getUserById(userId);
-        User other = getUserById(otherId);
+        getUserById(userId);
+        getUserById(otherId);
         log.debug("Запрошен список общих друзей пользователей с id={} и id={}", userId, otherId);
-        return user.getFriends().stream()
-                .filter(other.getFriends()::contains)
-                .map(this::getUserById)
-                .sorted(Comparator.comparingLong(User::getId))
-                .toList();
+        return userStorage.findCommonFriends(userId, otherId);
     }
 
     private User getUserById(long id) {

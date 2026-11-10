@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.storage.genre;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Genre;
 
@@ -10,6 +11,7 @@ import java.util.List;
 
 @Repository
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class GenreDbStorage {
     private final JdbcTemplate jdbc;
 

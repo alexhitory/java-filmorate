@@ -47,11 +47,13 @@ public class FilmService {
         return updated;
     }
 
+    @Transactional(readOnly = true)
     public Collection<Film> findAll() {
         log.debug("Запрошен список всех фильмов");
         return filmStorage.findAll();
     }
 
+    @Transactional(readOnly = true)
     public Film findById(long id) {
         log.debug("Запрошен фильм с id={}", id);
         return getFilmById(id);
@@ -73,6 +75,7 @@ public class FilmService {
         log.info("Пользователь с id={} удалил лайк у фильма с id={}", userId, filmId);
     }
 
+    @Transactional(readOnly = true)
     public List<Film> getPopularFilms(Integer count) {
         int limit = count == null ? DEFAULT_POPULAR_COUNT : count;
         if (limit <= 0) {
